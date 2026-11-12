@@ -80,6 +80,8 @@ func TestFileImport(t *testing.T) {
 				"Poll option 3": "Opción C",
 				"Poll votes 3":  2,
 			}},
+		{owner: "Suomalainen henkilö", index: 20, text: "Tämä on suomalainen päivämäärä ja kellonaika"},
+		{owner: "Suomalainen henkilö", index: 21, text: "Tämäkin on suomalainen päivämäärä ja kellonaika"},
 	}
 
 	i := 0

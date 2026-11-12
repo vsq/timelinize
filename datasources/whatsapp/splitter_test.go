@@ -12,7 +12,6 @@ func TestParseMessageHeader(t *testing.T) {
 		line     string
 		wantOK   bool
 		wantDate string
-		wantTime string
 		wantName string
 		wantLen  int
 		wantLRO  bool
@@ -21,8 +20,7 @@ func TestParseMessageHeader(t *testing.T) {
 			name:     "bracket YYYY/MM/DD HH:MM",
 			line:     "[2024/12/31, 12:34] Alice: hello",
 			wantOK:   true,
-			wantDate: "2024/12/31",
-			wantTime: "12:34",
+			wantDate: "2024/12/31, 12:34",
 			wantName: "Alice",
 			wantLen:  len("[2024/12/31, 12:34] Alice: "),
 		},
@@ -30,17 +28,31 @@ func TestParseMessageHeader(t *testing.T) {
 			name:     "bracket DD/MM/YYYY HH:MM:SS",
 			line:     "[31/12/2024, 12:34:56] Bob: hey",
 			wantOK:   true,
-			wantDate: "31/12/2024",
-			wantTime: "12:34:56",
+			wantDate: "31/12/2024, 12:34:56",
 			wantName: "Bob",
 			wantLen:  len("[31/12/2024, 12:34:56] Bob: "),
+		},
+		{
+			name:     "bracket DD.MM.YYYY HH.MM.SS",
+			line:     "[31.12.2024, 12.34.56] Pekka: hei",
+			wantOK:   true,
+			wantDate: "31.12.2024, 12.34.56",
+			wantName: "Pekka",
+			wantLen:  len("[31.12.2024, 12.34.56] Pekka: "),
+		},
+		{
+			name:     "bracket DD.MM.YYYY klo HH.MM.SS",
+			line:     "[31.12.2024 klo 12.34.56] Liisa: moi",
+			wantOK:   true,
+			wantDate: "31.12.2024 klo 12.34.56",
+			wantName: "Liisa",
+			wantLen:  len("[31.12.2024 klo 12.34.56] Liisa: "),
 		},
 		{
 			name:     "dash YYYY-MM-DD HH:MM",
 			line:     "2024-12-31, 12:34 - Carol: hi",
 			wantOK:   true,
-			wantDate: "2024-12-31",
-			wantTime: "12:34",
+			wantDate: "2024-12-31, 12:34",
 			wantName: "Carol",
 			wantLen:  len("2024-12-31, 12:34 - Carol: "),
 		},
@@ -48,8 +60,7 @@ func TestParseMessageHeader(t *testing.T) {
 			name:     "dash DD.MM.YYYY HH:MM:SS",
 			line:     "31.12.2024, 12:34:56 - Dave: yo",
 			wantOK:   true,
-			wantDate: "31.12.2024",
-			wantTime: "12:34:56",
+			wantDate: "31.12.2024, 12:34:56",
 			wantName: "Dave",
 			wantLen:  len("31.12.2024, 12:34:56 - Dave: "),
 		},
@@ -57,8 +68,7 @@ func TestParseMessageHeader(t *testing.T) {
 			name:     "LRO bracket",
 			line:     "\u200E[2024/12/31, 12:34] Eve: hi",
 			wantOK:   true,
-			wantDate: "2024/12/31",
-			wantTime: "12:34",
+			wantDate: "2024/12/31, 12:34",
 			wantName: "Eve",
 			wantLen:  len("\u200E") + len("[2024/12/31, 12:34] Eve: "),
 			wantLRO:  true,
@@ -67,26 +77,10 @@ func TestParseMessageHeader(t *testing.T) {
 			name:     "LRO dash",
 			line:     "\u200E2024-12-31, 12:34 - Frank: hi",
 			wantOK:   true,
-			wantDate: "2024-12-31",
-			wantTime: "12:34",
+			wantDate: "2024-12-31, 12:34",
 			wantName: "Frank",
 			wantLen:  len("\u200E") + len("2024-12-31, 12:34 - Frank: "),
 			wantLRO:  true,
-		},
-		{
-			name:   "invalid date format",
-			line:   "[2024_12_31, 12:34] Bad: nope",
-			wantOK: false,
-		},
-		{
-			name:   "invalid date length",
-			line:   "[2024/12/3, 12:34] Bad: nope",
-			wantOK: false,
-		},
-		{
-			name:   "invalid time format",
-			line:   "[2024/12/31, 2:34] Bad: nope",
-			wantOK: false,
 		},
 		{
 			name:   "missing colon separator",
@@ -109,8 +103,8 @@ func TestParseMessageHeader(t *testing.T) {
 			if !ok {
 				return
 			}
-			if h.Date != tt.wantDate || h.Time != tt.wantTime || h.Name != tt.wantName {
-				t.Fatalf("header mismatch: got (%s,%s,%s) want (%s,%s,%s)", h.Date, h.Time, h.Name, tt.wantDate, tt.wantTime, tt.wantName)
+			if h.DateTime != tt.wantDate || h.Name != tt.wantName {
+				t.Fatalf("header mismatch: got (%s,%s) want (%s,%s)", h.DateTime, h.Name, tt.wantDate, tt.wantName)
 			}
 			if h.HeaderLen != tt.wantLen {
 				t.Fatalf("header length mismatch: got %d want %d", h.HeaderLen, tt.wantLen)

@@ -26,3 +26,5 @@ Una pregunta
 ‎OPCIÓN: Opción A (0 votos)
 ‎OPCIÓN: Opción B (1 voto)
 ‎OPCIÓN: Opción C (2 votos)
+[1.8.2025, 12.00.20] Suomalainen henkilö: Tämä on suomalainen päivämäärä ja kellonaika
+[1.9.2025 klo 12.00.21] Suomalainen henkilö: Tämäkin on suomalainen päivämäärä ja kellonaika

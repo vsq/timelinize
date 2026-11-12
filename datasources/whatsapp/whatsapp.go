@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +23,15 @@ func init() {
 	if err != nil {
 		timeline.Log.Fatal("registering data source", zap.Error(err))
 	}
+}
+
+var whatsappTimeLayouts = []string{
+	"2006-01-02, 15:04:05",
+	"2006/01/02, 15:04:05",
+	"2006.01.02, 15:04:05",
+	"02/01/2006, 15:04:05",
+	"2.1.2006, 15.04.05",
+	"2.1.2006 klo 15.04.05",
 }
 
 // Importer can import the data from a zip file or folder.
@@ -79,7 +87,7 @@ func (i *Importer) FileImport(_ context.Context, dirEntry timeline.DirEntry, par
 			continue
 		}
 
-		timestamp, err := parseTime(h.Date, h.Time)
+		timestamp, err := parseTime(h.DateTime)
 		if err != nil {
 			return err
 		}
@@ -164,34 +172,22 @@ func (i *Importer) FileImport(_ context.Context, dirEntry timeline.DirEntry, par
 	return nil
 }
 
-func parseTime(dateStr, timeStr string) (time.Time, error) {
-	// Add seconds if missing
-	if len(timeStr) == len("15:04") {
-		timeStr += ":00"
-	}
+func parseTime(dateStr string) (time.Time, error) {
+	var lastErr error
 
-	yearAtEnd := true
-	sep := dateStr[2:3]
-	if _, err := strconv.Atoi(sep); err == nil {
-		yearAtEnd = false
-		sep = dateStr[4:5]
-		if _, err := strconv.Atoi(sep); err == nil {
-			return time.Time{}, fmt.Errorf("unable to convert '%s %s' into a time", dateStr, timeStr)
+	for _, layout := range whatsappTimeLayouts {
+		timestamp, err := time.Parse(layout, dateStr)
+		if err == nil {
+			return timestamp, nil
 		}
+		lastErr = err
 	}
 
-	var format string
-	if yearAtEnd {
-		format = fmt.Sprintf("02%s01%s2006 15:04:05", sep, sep)
-	} else {
-		format = fmt.Sprintf("2006%s01%s02 15:04:05", sep, sep)
-	}
-
-	timestamp, err := time.Parse(format, dateStr+" "+timeStr)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("unable to convert '%s %s' into a time", dateStr, timeStr)
-	}
-	return timestamp, nil
+	return time.Time{}, fmt.Errorf(
+		"unable to convert '%q' into a time: %w",
+		dateStr,
+		lastErr,
+	)
 }
 
 const (

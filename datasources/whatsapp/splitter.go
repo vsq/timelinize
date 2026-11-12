@@ -3,28 +3,19 @@ package whatsapp
 import (
 	"bufio"
 	"bytes"
-	"strconv"
 )
 
 var lro = []byte{0xE2, 0x80, 0x8E} // U+200E (LRM)
 const (
 	dateLen    = 10
-	timeLenHM  = 5
-	timeLenHMS = 8
 	splitTwo   = 2
-	minYear    = 1
-	minMonth   = 1
-	maxMonth   = 12
-	minDay     = 1
-	maxDay     = 31
 	scanOffset = 4
 )
 
 type messageHeader struct {
 	HeaderLen int
 	HasLRO    bool
-	Date      string
-	Time      string
+	DateTime  string
 	Name      string
 }
 
@@ -86,11 +77,7 @@ func parseMessageHeader(b []byte) (messageHeader, bool) {
 		if endBracket == -1 {
 			return messageHeader{}, false
 		}
-		header := b[1:endBracket]
-		parts := bytes.SplitN(header, []byte(", "), splitTwo)
-		if len(parts) != splitTwo || !isDate(parts[0]) || !isTime(parts[1]) {
-			return messageHeader{}, false
-		}
+		h.DateTime = string(b[1:endBracket])
 
 		nameStart := endBracket + len("] ")
 		if nameStart >= len(b) || b[endBracket+1] != ' ' {
@@ -102,8 +89,6 @@ func parseMessageHeader(b []byte) (messageHeader, bool) {
 		}
 		nameEnd := nameStart + nameEndRel
 
-		h.Date = string(parts[0])
-		h.Time = string(parts[1])
 		h.Name = string(b[nameStart:nameEnd])
 
 		hLen := nameEnd + len(": ")
@@ -120,29 +105,22 @@ func parseMessageHeader(b []byte) (messageHeader, bool) {
 
 	// Mobile export variant:
 	// DD/MM/YYYY, HH:MM(:SS) - Name: message
-	parts := bytes.SplitN(b, []byte(", "), splitTwo)
-	if len(parts) != splitTwo || !isDate(parts[0]) {
+	parts := bytes.SplitN(b, []byte(" - "), splitTwo)
+	if len(parts) != splitTwo {
 		return messageHeader{}, false
 	}
-	dateStr := parts[0]
 
-	parts2 := bytes.SplitN(parts[1], []byte(" - "), splitTwo)
-	if len(parts2) != splitTwo || !isTime(parts2[0]) {
-		return messageHeader{}, false
-	}
-	timeStr := parts2[0]
-	nameAndMsg := parts2[1]
+	h.DateTime = string(parts[0])
+	nameAndMsg := parts[1]
 
 	nameEnd := bytes.Index(nameAndMsg, []byte(": "))
 	if nameEnd <= 0 {
 		return messageHeader{}, false
 	}
 
-	h.Date = string(dateStr)
-	h.Time = string(timeStr)
 	h.Name = string(nameAndMsg[:nameEnd])
 
-	hLen := len(dateStr) + len(", ") + len(timeStr) + len(" - ") + nameEnd + len(": ")
+	hLen := len(h.DateTime) + len(" - ") + nameEnd + len(": ")
 	if h.HasLRO {
 		hLen += len(lro)
 	}
@@ -151,60 +129,4 @@ func parseMessageHeader(b []byte) (messageHeader, bool) {
 	}
 	h.HeaderLen = hLen
 	return h, true
-}
-
-func isDate(b []byte) bool {
-	if len(b) != dateLen {
-		return false
-	}
-	sep4 := b[4]
-	sep2 := b[2]
-
-	// YYYY?MM?DD
-	if sep4 == '-' || sep4 == '/' || sep4 == '.' {
-		if !isDigit(b[0]) || !isDigit(b[1]) || !isDigit(b[2]) || !isDigit(b[3]) ||
-			!isDigit(b[5]) || !isDigit(b[6]) || !isDigit(b[8]) || !isDigit(b[9]) ||
-			b[7] != sep4 {
-			return false
-		}
-
-		year, _ := strconv.Atoi(string(b[0:4]))
-		month, _ := strconv.Atoi(string(b[5:7]))
-		day, _ := strconv.Atoi(string(b[8:10]))
-		return year >= minYear && month >= minMonth && month <= maxMonth && day >= minDay && day <= maxDay
-	}
-
-	// DD?MM?YYYY
-	if sep2 == '-' || sep2 == '/' || sep2 == '.' {
-		if !isDigit(b[0]) || !isDigit(b[1]) ||
-			!isDigit(b[3]) || !isDigit(b[4]) ||
-			!isDigit(b[6]) || !isDigit(b[7]) || !isDigit(b[8]) || !isDigit(b[9]) ||
-			b[2] != sep2 || b[5] != sep2 {
-			return false
-		}
-
-		day, _ := strconv.Atoi(string(b[0:2]))
-		month, _ := strconv.Atoi(string(b[3:5]))
-		year, _ := strconv.Atoi(string(b[6:10]))
-		return year >= minYear && month >= minMonth && month <= maxMonth && day >= minDay && day <= maxDay
-	}
-
-	return false
-}
-
-func isTime(b []byte) bool {
-	if len(b) != timeLenHM && len(b) != timeLenHMS {
-		return false
-	}
-	if !isDigit(b[0]) || !isDigit(b[1]) || b[2] != ':' || !isDigit(b[3]) || !isDigit(b[4]) {
-		return false
-	}
-	if len(b) == timeLenHM {
-		return true
-	}
-	return b[5] == ':' && isDigit(b[6]) && isDigit(b[7])
-}
-
-func isDigit(c byte) bool {
-	return c >= '0' && c <= '9'
 }
